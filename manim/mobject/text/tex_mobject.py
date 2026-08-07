@@ -12,9 +12,6 @@ r"""Mobjects representing text rendered using LaTeX.
 
 from __future__ import annotations
 
-from numpy.strings import center
-
-from manim.typing import Point3D
 from manim.utils.color import BLACK, ParsableManimColor
 
 __all__ = [
@@ -47,8 +44,10 @@ from ..opengl.opengl_compatibility import ConvertToOpenGL
 MATHTEX_SUBSTRING = "substring"
 BASELINE_MARKER = r"\rule{1ex}{1ex}"
 
+
 class _Baseline:
     pass
+
 
 BASELINE = _Baseline()
 
@@ -306,7 +305,7 @@ class MathTex(SingleStringMathTex):
         self.substrings_to_isolate.extend(self.tex_to_color_map.keys())
         self.tex_environment = tex_environment
         self.brace_notation_split_occurred = False
-        self.tex_strings = self._prepare_tex_strings([BASELINE_MARKER,*tex_strings])
+        self.tex_strings = self._prepare_tex_strings([BASELINE_MARKER, *tex_strings])
         self.matched_strings_and_ids: list[tuple[str, str]] = []
 
         try:
@@ -651,6 +650,7 @@ class MathTex(SingleStringMathTex):
     @property
     def baseline(self) -> float:
         return self.get_center()[1] + self.baseline_offset
+
 
 class MathTexPart(VMobject, metaclass=ConvertToOpenGL):
     tex_string: str
