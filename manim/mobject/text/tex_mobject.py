@@ -12,6 +12,9 @@ r"""Mobjects representing text rendered using LaTeX.
 
 from __future__ import annotations
 
+from numpy.strings import center
+
+from manim.typing import Point3D
 from manim.utils.color import BLACK, ParsableManimColor
 
 __all__ = [
@@ -20,6 +23,7 @@ __all__ = [
     "Tex",
     "BulletedList",
     "Title",
+    "BASELINE",
 ]
 
 
@@ -41,6 +45,12 @@ from manim.utils.tex_file_writing import tex_to_svg_file
 from ..opengl.opengl_compatibility import ConvertToOpenGL
 
 MATHTEX_SUBSTRING = "substring"
+BASELINE_MARKER = r"\rule{1ex}{1ex}"
+
+class _Baseline:
+    pass
+
+BASELINE = _Baseline()
 
 
 class SingleStringMathTex(SVGMobject):
@@ -79,7 +89,7 @@ class SingleStringMathTex(SVGMobject):
 
         self.tex_string = tex_string
         file_name = tex_to_svg_file(
-            self._get_modified_expression(tex_string),
+            self._get_modified_expression(BASELINE_MARKER + tex_string),
             environment=self.tex_environment,
             tex_template=self.tex_template,
         )
@@ -296,7 +306,7 @@ class MathTex(SingleStringMathTex):
         self.substrings_to_isolate.extend(self.tex_to_color_map.keys())
         self.tex_environment = tex_environment
         self.brace_notation_split_occurred = False
-        self.tex_strings = self._prepare_tex_strings(tex_strings)
+        self.tex_strings = self._prepare_tex_strings([BASELINE_MARKER,*tex_strings])
         self.matched_strings_and_ids: list[tuple[str, str]] = []
 
         try:
@@ -312,6 +322,12 @@ class MathTex(SingleStringMathTex):
             # Save the original tex_string
             self.tex_string = self.arg_separator.join(self.tex_strings)
             self._break_up_by_substrings()
+
+            # Remove the baseline marker from the submobjects and set the baseline attribute
+            baseline_y = self.submobjects[0].get_bottom()[1]
+            self.submobjects.remove(self.submobjects[0])
+            self.baseline_offset = baseline_y - self.get_center()[1]
+
         except ValueError as compilation_error:
             if self.brace_notation_split_occurred:
                 logger.error(
@@ -596,6 +612,45 @@ class MathTex(SingleStringMathTex):
     def sort_alphabetically(self) -> None:
         self.submobjects.sort(key=lambda m: m.get_tex_string())
 
+    def next_to(
+        self,
+        mobject_or_point,
+        direction=RIGHT,
+        buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER,
+        aligned_edge=ORIGIN,
+        **kwargs,
+    ):
+        if aligned_edge is not BASELINE:
+            return super().next_to(
+                mobject_or_point,
+                direction=direction,
+                buff=buff,
+                aligned_edge=aligned_edge,
+                **kwargs,
+            )
+
+        # First perform ordinary center-aligned positioning.
+        super().next_to(
+            mobject_or_point,
+            direction=direction,
+            buff=buff,
+            aligned_edge=DOWN,
+            **kwargs,
+        )
+
+        target_baseline = getattr(
+            mobject_or_point,
+            "baseline",
+            mobject_or_point.get_bottom()[1],
+        )
+
+        self.shift(UP * (target_baseline - self.baseline))
+
+        return self
+
+    @property
+    def baseline(self) -> float:
+        return self.get_center()[1] + self.baseline_offset
 
 class MathTexPart(VMobject, metaclass=ConvertToOpenGL):
     tex_string: str
