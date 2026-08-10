@@ -13,7 +13,9 @@ from typing import Any, Literal
 from bs4 import BeautifulSoup, Tag
 from pygments import highlight
 from pygments.formatters.html import HtmlFormatter
+from pygments.lexer import Lexer
 from pygments.lexers import get_lexer_by_name, guess_lexer, guess_lexer_for_filename
+from pygments.style import Style
 from pygments.styles import get_all_styles
 
 from manim.constants import *
@@ -126,7 +128,8 @@ class Code(VMobject, metaclass=ConvertToOpenGL):
         code_file: StrPath | None = None,
         code_string: str | None = None,
         language: str | None = None,
-        formatter_style: str = "vim",
+        lexer: Lexer | None = None,
+        formatter_style: Style | str = "vim",
         tab_width: int = 4,
         add_line_numbers: bool = True,
         line_numbers_from: int = 1,
@@ -139,17 +142,18 @@ class Code(VMobject, metaclass=ConvertToOpenGL):
         if code_file is not None:
             code_file = Path(code_file)
             code_string = code_file.read_text(encoding="utf-8")
-            if language is not None:
-                lexer = get_lexer_by_name(language)
-            else:
-                lexer = guess_lexer_for_filename(code_file.name, code_string)
-        elif code_string is not None:
-            if language is not None:
-                lexer = get_lexer_by_name(language)
-            else:
-                lexer = guess_lexer(code_string)
-        else:
+
+        if code_string is None:
             raise ValueError("Either a code file or a code string must be specified.")
+
+        if lexer is not None:
+            pass
+        elif language is not None:
+            lexer = get_lexer_by_name(language)
+        elif code_file is not None:
+            lexer = guess_lexer_for_filename(code_file.name, code_string)
+        else:
+            lexer = guess_lexer(code_string)
 
         code_string = code_string.expandtabs(tabsize=tab_width)
 
