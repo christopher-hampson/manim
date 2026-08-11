@@ -21,7 +21,8 @@ import numpy as np
 from manim import config
 from manim.constants import *
 from manim.mobject.geometry.arc import Circle, Dot
-from manim.mobject.geometry.line import Arrow, DashedLine, Line
+from manim.mobject.geometry.arrow import Arrow
+from manim.mobject.geometry.line import DashedLine, Line
 from manim.mobject.geometry.polygram import Polygon, Rectangle, RegularPolygon
 from manim.mobject.graphing.functions import ImplicitFunction, ParametricFunction
 from manim.mobject.graphing.number_line import NumberLine

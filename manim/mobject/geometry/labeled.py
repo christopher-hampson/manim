@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from manim.constants import *
-from manim.mobject.geometry.line import Arrow, Line
+from manim.mobject.geometry.arrow import Arrow
+from manim.mobject.geometry.line import Line
 from manim.mobject.geometry.polygram import Polygram
 from manim.mobject.geometry.shape_matchers import (
     BackgroundRectangle,

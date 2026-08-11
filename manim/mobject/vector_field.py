@@ -18,7 +18,7 @@ import numpy as np
 from PIL import Image
 
 from manim.animation.updaters.update import UpdateFromAlphaFunc
-from manim.mobject.geometry.line import Vector
+from manim.mobject.geometry.arrow import Vector
 from manim.mobject.graphing.coordinate_systems import CoordinateSystem
 
 from .. import config

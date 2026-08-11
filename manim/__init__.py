@@ -49,11 +49,13 @@ from .camera.three_d_camera import *
 from .constants import *
 from .mobject.frame import *
 from .mobject.geometry.arc import *
+from .mobject.geometry.arrow import *
 from .mobject.geometry.boolean_ops import *
 from .mobject.geometry.labeled import *
 from .mobject.geometry.line import *
 from .mobject.geometry.polygram import *
 from .mobject.geometry.shape_matchers import *
+from .mobject.geometry.tipable import *
 from .mobject.geometry.tips import *
 from .mobject.graph import *
 from .mobject.graphing.coordinate_systems import *
