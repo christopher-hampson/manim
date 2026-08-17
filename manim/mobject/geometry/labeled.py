@@ -103,7 +103,7 @@ class Label(VGroup):
             self.rendered_label = label
         else:
             raise TypeError(
-                "Unsupported label type. Must be MathTex, Tex, Text, Typst, or TypstMath."
+                "Unsupported label type. Must be MathTex, Tex, Text, Typst, or MathTypst."
             )
 
         # Add a background box
