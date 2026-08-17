@@ -31,7 +31,7 @@ __all__ = [
     "SpinInFromNothing",
 ]
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy as np
 
@@ -181,14 +181,14 @@ class GrowFromEdge(GrowFromPoint):
 
 
 class GrowArrow(Animation):
-    """Introduce a :class:`~.TippableVMobject` by growing it from its start toward its tip.
+    """Introduce a :class:`~.TipableVMobject` by growing it from its start toward its tip.
 
     Parameters
     ----------
-    arrow
-        The arrow to be introduced.
+    mobject
+        The tipable mobject to be introduced.
     point_color
-        Initial color of the arrow before growing to its full size. Leave empty to match arrow's color.
+        Initial color of the mobject before growing to its full size. Leave empty to match mobject's color.
 
     Examples
     --------
@@ -197,11 +197,20 @@ class GrowArrow(Animation):
 
         class GrowArrowExample(Scene):
             def construct(self):
-                arrows = [Arrow(2 * LEFT, 2 * RIGHT), Arrow(2 * DR, 2 * UL)]
-                VGroup(*arrows).set_x(0).arrange(buff=2)
-                self.play(GrowArrow(arrows[0]))
-                self.play(GrowArrow(arrows[1], point_color=RED))
+                arrows = [
+                    Arrow(2 * LEFT, 2 * RIGHT, buff=0),
+                    DoubleArrow(2 * LEFT, 2 * RIGHT, buff=0),
+                    CurvedArrow(2 * LEFT, 2 * RIGHT),
+                    CurvedDoubleArrow(2 * LEFT, 2 * RIGHT),
+                ]
+                VGroup(*arrows).arrange(DOWN, buff=1)
 
+                self.play(GrowArrow(arrows[0]))
+                self.play(GrowArrow(arrows[1]))
+                self.play(GrowArrow(arrows[2]))
+                self.play(GrowArrow(arrows[3], point_color=RED))
+
+                
     """
 
     def __init__(
@@ -215,245 +224,157 @@ class GrowArrow(Animation):
         super().__init__(mobject, **kwargs)
 
     def begin(self) -> None:
-        self._full_arrow = cast(
-            "TipableVMobject",
-            self.mobject.copy(),
-        )
-
         self._target_color = ManimColor(self.mobject.get_color())
 
         self._starting_color = ManimColor(
             self.point_color if self.point_color is not None else self._target_color
         )
 
-        has_end_tip = self._full_arrow.has_tip()
-        has_start_tip = self._full_arrow.has_start_tip()
-
-        self._end_tip: ArrowTip | None = None
-        self._start_tip: ArrowTip | None = None
-
-        # Store tip identities and the actual intended path endpoints.
-        if has_end_tip:
-            self._end_tip = cast(
-                "ArrowTip",
-                self._full_arrow.tip.copy(),
-            )
-            full_end = self._full_arrow.tip.tip_point.copy()
-        else:
-            self._end_tip = None
-            full_end = self._full_arrow.get_end().copy()
-
-        if has_start_tip:
-            self._start_tip = cast(
-                "ArrowTip",
-                self._full_arrow.start_tip.copy(),
-            )
-            full_start = self._full_arrow.start_tip.tip_point.copy()
-        else:
-            self._start_tip = None
-            full_start = self._full_arrow.get_start().copy()
-
-        # Remove tips without pop_tips(), so there is no additional
-        # modification of the shaft.
-        if has_end_tip:
-            self._full_arrow.remove(self._full_arrow.tip)
-
-        if has_start_tip:
-            self._full_arrow.remove(self._full_arrow.start_tip)
-
-        self._full_arrow.put_start_and_end_on(
-            full_start,
-            full_end,
+        self._end_tip = self.mobject.tip.copy() if self.mobject.has_tip() else None
+        self._start_tip = (
+            self.mobject.start_tip.copy() if self.mobject.has_start_tip() else None
         )
+
+        self._full_path = self.mobject.copy()
+        self._full_path.pop_tips()
 
         super().begin()
 
     def _remove_current_tips(self) -> None:
-        """Remove current tips without modifying the shaft geometry."""
+        """Remove current tips without altering the shaft."""
         if self.mobject.has_tip():
             self.mobject.remove(self.mobject.tip)
 
         if self.mobject.has_start_tip():
             self.mobject.remove(self.mobject.start_tip)
 
-    def _point_at_alpha(self, alpha: float) -> Point3D | None:
-        """Evaluate the pristine path using the same parameterisation
-        used by pointwise_become_partial().
-        """
-        n_curves = self._full_arrow.get_num_curves()
+    def _point_at_parameter(
+        self,
+        path: TipableVMobject,
+        alpha: float,
+    ) -> Point3D | None:
+        """Evaluate a VMobject using pointwise_become_partial's parameterisation."""
+        n_curves = path.get_num_curves()
 
         if n_curves == 0:
             return None
 
         alpha = np.clip(alpha, 0.0, 1.0)
 
-        if alpha == 1:
+        if alpha >= 1.0:
             curve_index = n_curves - 1
             local_t = 1.0
         else:
             scaled = alpha * n_curves
-            curve_index = int(np.floor(scaled))
+
+            curve_index = min(
+                int(np.floor(scaled)),
+                n_curves - 1,
+            )
+
             local_t = scaled - curve_index
 
-            curve_index = min(curve_index, n_curves - 1)
-
-        points = self._full_arrow.get_nth_curve_points(curve_index)
+        points = path.get_nth_curve_points(curve_index)
 
         return bezier(points)(local_t)
 
-    def _get_tangent(
+    def _bisect(
         self,
-        alpha: float,
-        at_start: bool = False,
-        eps: float = 1e-4,
-        tol: float = 1e-10,
-    ) -> Vector3DLike:
-        """Estimate the tangent using a short secant in the same
-        parameterisation used by pointwise_become_partial().
+        func: Callable[[float], float],
+        low: float,
+        high: float,
+        iterations: int = 30,
+    ) -> float:
+        low_value = func(low)
 
-        This avoids both:
-        - the arc-length parameter mismatch of point_from_proportion()
-        - unstable/degenerate endpoint handles at Bézier boundaries
-        """
+        for _ in range(iterations):
+            mid = (low + high) / 2
+            mid_value = func(mid)
 
-        def secant(delta: float) -> Vector3DLike:
-            if at_start:
-                p0 = self._point_at_alpha(0)
-                p1 = self._point_at_alpha(min(1, delta))
+            if np.signbit(mid_value) == np.signbit(low_value):
+                low = mid
+                low_value = mid_value
             else:
-                p0 = self._point_at_alpha(max(0, alpha - delta))
-                p1 = self._point_at_alpha(min(1, alpha + delta))
+                high = mid
 
-            if p0 is None or p1 is None:
-                return np.zeros(3)
+        return (low + high) / 2
 
-            # Start tips point opposite the path direction.
-            return p0 - p1 if at_start else p1 - p0
-
-        for scale in (1, 10, 100, 1000):
-            tangent = secant(eps * scale)
-
-            if np.linalg.norm(tangent) > tol:
-                return tangent
-
-        return np.zeros(3)
-
-    def _position_tip(
+    def _parameter_before_end_by_chord(
         self,
-        tip: ArrowTip,
-        alpha: float,
-        at_start: bool = False,
-    ) -> ArrowTip:
-        anchor = self.mobject.get_start() if at_start else self.mobject.get_end()
+        path: TipableVMobject,
+        distance: float,
+        *,
+        samples: int = 64,
+        iterations: int = 30,
+    ) -> float:
+        """Find the closest point before the end at chord distance ``distance``."""
+        if distance <= 0:
+            return 1.0
 
-        tangent = self._get_tangent(
-            alpha,
-            at_start=at_start,
-        )
+        endpoint = path.get_end()
 
-        if np.linalg.norm(tangent) < 1e-10:
-            return tip
+        def chord_error(alpha: float) -> float:
+            point = self._point_at_parameter(path, alpha)
+            return np.linalg.norm(endpoint - point) - distance
 
-        tip.rotate(angle_of_vector(tangent) - tip.tip_angle)
+        previous_alpha = 1.0
 
-        tip.shift(anchor - tip.tip_point)
+        for i in range(1, samples + 1):
+            alpha = 1.0 - i / samples
 
-        return tip
+            if chord_error(alpha) >= 0:
+                return self._bisect(
+                    chord_error,
+                    alpha,
+                    previous_alpha,
+                    iterations,
+                )
 
-    def _trim_for_tip(
+            previous_alpha = alpha
+
+        return 0.0
+
+    def _parameter_after_start_by_chord(
         self,
-        tip: ArrowTip,
-        at_start: bool = False,
-    ) -> None:
-        arc_length = self.mobject.get_arc_length()
+        path: TipableVMobject,
+        distance: float,
+        *,
+        samples: int = 64,
+        iterations: int = 30,
+    ) -> float:
+        """Find the closest point after the start at chord distance ``distance``."""
+        if distance <= 0:
+            return 0.0
 
-        if arc_length <= 0:
-            return
+        endpoint = path.get_start()
 
-        # Current intended attachment point:
-        # the geometric centre of the tip.
-        tip_anchor = tip.get_center()
+        def chord_error(alpha: float) -> float:
+            point = self._point_at_parameter(path, alpha)
+            return np.linalg.norm(point - endpoint) - distance
 
-        direction = tip.tip_point - tip_anchor
-        direction_length = np.linalg.norm(direction)
+        previous_alpha = 0.0
 
-        if direction_length == 0:
-            return
+        for i in range(1, samples + 1):
+            alpha = i / samples
 
-        direction /= direction_length
+            if chord_error(alpha) >= 0:
+                return self._bisect(
+                    chord_error,
+                    previous_alpha,
+                    alpha,
+                    iterations,
+                )
 
-        # Physical distance from tip point back to its anchor,
-        # measured along the tip's axis.
-        trim_length = np.dot(
-            tip.tip_point - tip_anchor,
-            direction,
-        )
+            previous_alpha = alpha
 
-        if trim_length <= 0 or trim_length >= arc_length:
-            return
+        return 1.0
 
-        trim_proportion = trim_length / arc_length
-
-        if at_start:
-            self.mobject.pointwise_become_partial(
-                self.mobject,
-                trim_proportion,
-                1,
-            )
-        else:
-            self.mobject.pointwise_become_partial(
-                self.mobject,
-                0,
-                1 - trim_proportion,
-            )
-
-    def _attach_tip(
+    def _make_scaled_tips(
         self,
-        tip: ArrowTip,
-        alpha: float,
-        at_start: bool = False,
-    ) -> None:
-        # First position against the untrimmed endpoint.
-        self._position_tip(
-            tip,
-            alpha,
-            at_start=at_start,
-        )
-
-        # Then shorten the shaft underneath the tip.
-        self._trim_for_tip(
-            tip,
-            at_start=at_start,
-        )
-
-        self.mobject.assign_tip_attr(
-            tip,
-            at_start=at_start,
-        )
-
-        self.mobject.add(tip)
-
-    def interpolate_mobject(self, alpha: float) -> None:
-        alpha = self.rate_func(alpha)
-
-        # Do not use pop_tips(); it may modify curved geometry.
-        self._remove_current_tips()
-
-        # Reconstruct every frame from the pristine path.
-        self.mobject.pointwise_become_partial(
-            self._full_arrow,
-            0,
-            alpha,
-        )
-
-        self.mobject._set_stroke_width_from_length()
-
-        length = self.mobject.get_length()
-
-        if length == 0:
-            return
-
-        tips = [
+        path_length: float,
+    ) -> tuple[ArrowTip | None, ArrowTip | None]:
+        """Create appropriately scaled copies of the original tips."""
+        original_tips = [
             tip
             for tip in (
                 self._end_tip,
@@ -462,17 +383,17 @@ class GrowArrow(Animation):
             if tip is not None
         ]
 
-        if not tips:
-            return
+        if not original_tips:
+            return None, None
 
-        original_tip_width = sum(tip.width for tip in tips)
+        original_tip_width = sum(tip.width for tip in original_tips)
 
-        if original_tip_width == 0:
-            return
+        if np.isclose(original_tip_width, 0):
+            return None, None
 
         target_tip_width = min(
             original_tip_width,
-            self.mobject.max_tip_length_to_length_ratio * length,
+            self.mobject.max_tip_length_to_length_ratio * path_length,
         )
 
         tip_factor = target_tip_width / original_tip_width
@@ -482,26 +403,139 @@ class GrowArrow(Animation):
             if self._end_tip is not None
             else None
         )
-
         start_tip = (
             self._start_tip.copy().scale(tip_factor)
             if self._start_tip is not None
             else None
         )
 
+        return end_tip, start_tip
+
+    def _position_tip_between(
+        self,
+        tip: ArrowTip,
+        base_point: Point3DLike,
+        tip_point: Point3DLike,
+    ) -> None:
+        """Rigidly position a tip between two prescribed points."""
+
+        current_axis = tip.tip_point - tip.base
+        target_axis = tip_point - base_point
+        current_length = np.linalg.norm(current_axis)
+        target_length = np.linalg.norm(target_axis)
+
+        if np.isclose(current_length, 0) or np.isclose(target_length, 0):
+            return
+
+        angle = angle_of_vector(target_axis) - angle_of_vector(current_axis)
+
+        tip.rotate(angle, about_point=tip.base)
+        tip.shift(base_point - tip.base)
+
+    def interpolate_mobject(
+        self,
+        alpha: float,
+    ) -> None:
+        alpha = float(
+            np.clip(
+                self.rate_func(alpha),
+                0.0,
+                1.0,
+            )
+        )
+
+        self._remove_current_tips()
+
+        current_path = self._full_path.copy()
+
+        current_path.pointwise_become_partial(
+            self._full_path,
+            0.0,
+            alpha,
+        )
+
+        if current_path.get_num_curves() == 0:
+            self.mobject.set_points(current_path.points.copy())
+            return
+
+        path_length = current_path.get_arc_length()
+
+        if path_length <= 1e-12:
+            self.mobject.set_points(current_path.points.copy())
+            return
+
+        end_tip, start_tip = self._make_scaled_tips(path_length)
+
+        shaft_start = 0.0
+        shaft_end = 1.0
+
+        end_tip_point = None
+        end_base_point = None
+
+        start_tip_point = None
+        start_base_point = None
+
         if end_tip is not None:
-            self._attach_tip(
-                end_tip,
-                alpha,
-                at_start=False,
+            tip_length = float(np.linalg.norm(end_tip.tip_point - end_tip.base))
+            
+            shaft_end = self._parameter_before_end_by_chord(
+                current_path,
+                tip_length,
             )
 
+            end_tip_point = current_path.get_end().copy()
+
+            end_base_point = self._point_at_parameter(
+                current_path,
+                shaft_end,
+            )
+            
+            self._position_tip_between(
+                end_tip,
+                end_base_point,
+                end_tip_point,
+            )
+
+            self.mobject.assign_tip_attr(
+                end_tip,
+                at_start=False,
+            )
+            self.mobject.add(end_tip)
+
         if start_tip is not None:
-            self._attach_tip(
+            tip_length = float(np.linalg.norm(start_tip.tip_point - start_tip.base))
+            
+            shaft_start = self._parameter_after_start_by_chord(
+                current_path,
+                tip_length,
+            )
+
+            start_tip_point = current_path.get_start().copy()
+
+            start_base_point = self._point_at_parameter(
+                current_path,
+                shaft_start,
+            )
+            
+            self._position_tip_between(
                 start_tip,
-                alpha,
+                start_base_point,
+                start_tip_point,
+            )
+
+            self.mobject.assign_tip_attr(
+                start_tip,
                 at_start=True,
             )
+            self.mobject.add(start_tip)
+
+        self.mobject.pointwise_become_partial(
+                    current_path,
+                    shaft_start,
+                    shaft_end,
+                )
+        
+        self.mobject._set_stroke_width_from_length()
 
         color = interpolate_color(
             self._starting_color,

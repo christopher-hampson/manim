@@ -273,8 +273,7 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             return super().get_start()
 
     def get_length(self) -> float:
-        start, end = self.get_start_and_end()
-        return float(np.linalg.norm(start - end))
+        return self.get_arc_length()
 
     def scale(self, factor: float, scale_tips: bool = False, **kwargs: Any) -> Self:  # type: ignore[override]
         r"""Scale an arrow, but keep stroke width and arrow tip size fixed.

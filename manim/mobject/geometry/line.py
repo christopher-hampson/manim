@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from manim.mobject.geometry.tipable import TipableVMobject
 from manim.constants import *
 from manim.mobject.geometry.arc import Arc, ArcBetweenPoints, Dot
+from manim.mobject.geometry.tipable import TipableVMobject
 from manim.mobject.mobject import Mobject
 from manim.mobject.opengl.opengl_compatibility import ConvertToOpenGL
 from manim.mobject.opengl.opengl_mobject import OpenGLMobject
