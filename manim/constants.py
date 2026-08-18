@@ -38,6 +38,7 @@ __all__ = [
     "LEFT",
     "IN",
     "OUT",
+    "BASELINE",
     "X_AXIS",
     "Y_AXIS",
     "Z_AXIS",
@@ -347,3 +348,9 @@ class CapStyleType(Enum):
     ROUND = 1
     BUTT = 2
     SQUARE = 3
+
+
+class Alignment(Enum):
+    BASELINE = "baseline"
+
+BASELINE = Alignment.BASELINE

@@ -83,6 +83,7 @@ if TYPE_CHECKING:
 TEXT_MOB_SCALE_FACTOR = 0.05
 DEFAULT_LINE_SPACING_SCALE = 0.3
 TEXT2SVG_ADJUSTMENT_FACTOR = 4.8
+BASELINE_MARKER = r"▪"
 
 __all__ = ["Text", "Paragraph", "MarkupText", "register_font"]
 
@@ -525,7 +526,7 @@ class Text(SVGMobject):
 
         self.original_text = text
         self.disable_ligatures = disable_ligatures
-        text_without_tabs = text
+        text_without_tabs = BASELINE_MARKER + text
         if text.find("\t") != -1:
             text_without_tabs = text.replace("\t", " " * self.tab_width)
         self.text = text_without_tabs
@@ -549,11 +550,31 @@ class Text(SVGMobject):
             use_svg_cache=use_svg_cache,
             **kwargs,
         )
-        self.text = text
+
+        # Extract and remove the baseline marker.
+        baseline_y = self.submobjects[0].get_bottom()[1]
+        self.remove(self.submobjects[0])
+
+        # Restore the actual user text.
+        # self.text = text_without_tabs.removeprefix(BASELINE_MARKER)
+
+        # Calculate the offset relative to the mobject without the marker.
+        self.baseline_offset = (
+            baseline_y - self.get_center()[1]
+        ) / self.height
+
         if self.disable_ligatures:
             self.submobjects = [*self._gen_chars()]
+
         self.chars = self.get_group_class()(*self.submobjects)
-        self.text = text_without_tabs.replace(" ", "").replace("\n", "")
+
+        self.text = (
+            text_without_tabs
+            .removeprefix(BASELINE_MARKER)
+            .replace(" ", "")
+            .replace("\n", "")
+        )
+
         nppc = self.n_points_per_curve
         for each in self:
             if len(each.points) == 0:
@@ -637,6 +658,48 @@ class Text(SVGMobject):
             raise ValueError("font_size must be greater than 0.")
         else:
             self.scale(font_val / self.font_size)
+
+    @property
+    def baseline(self) -> float:
+        return (
+            self.get_center()
+            + self.baseline_offset * self.height * UP
+        )
+
+    # def next_to(
+    #     self,
+    #     mobject_or_point,
+    #     direction=RIGHT,
+    #     buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER,
+    #     aligned_edge=ORIGIN,
+    #     **kwargs,
+    # ):
+    #     if aligned_edge is not BASELINE:
+    #         return super().next_to(
+    #             mobject_or_point,
+    #             direction=direction,
+    #             buff=buff,
+    #             aligned_edge=aligned_edge,
+    #             **kwargs,
+    #         )
+
+    #     super().next_to(
+    #         mobject_or_point,
+    #         direction=direction,
+    #         buff=buff,
+    #         aligned_edge=DOWN,
+    #         **kwargs,
+    #     )
+
+    #     target_baseline = getattr(
+    #         mobject_or_point,
+    #         "baseline",
+    #         mobject_or_point.get_bottom(),
+    #     )
+
+    #     self.shift((target_baseline - self.baseline)[1] * UP)
+
+    #     return self
 
     def _gen_chars(self) -> VGroup:
         chars = self.get_group_class()()

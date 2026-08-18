@@ -20,7 +20,6 @@ __all__ = [
     "Tex",
     "BulletedList",
     "Title",
-    "BASELINE",
 ]
 
 
@@ -43,13 +42,6 @@ from ..opengl.opengl_compatibility import ConvertToOpenGL
 
 MATHTEX_SUBSTRING = "substring"
 BASELINE_MARKER = r"\rule{1ex}{1ex}"
-
-
-class _Baseline:
-    pass
-
-
-BASELINE = _Baseline()
 
 
 class SingleStringMathTex(SVGMobject):
@@ -325,7 +317,9 @@ class MathTex(SingleStringMathTex):
             # Remove the baseline marker from the submobjects and set the baseline attribute
             baseline_y = self.submobjects[0].get_bottom()[1]
             self.submobjects.remove(self.submobjects[0])
-            self.baseline_offset = baseline_y - self.get_center()[1]
+            self.baseline_offset = (
+                        baseline_y - self.get_center()[1]
+                    ) / self.height
 
         except ValueError as compilation_error:
             if self.brace_notation_split_occurred:
@@ -618,45 +612,48 @@ class MathTex(SingleStringMathTex):
         self.submobjects.sort(key=lambda m: m.get_tex_string())
         return self
 
-    def next_to(
-        self,
-        mobject_or_point,
-        direction=RIGHT,
-        buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER,
-        aligned_edge=ORIGIN,
-        **kwargs,
-    ):
-        if aligned_edge is not BASELINE:
-            return super().next_to(
-                mobject_or_point,
-                direction=direction,
-                buff=buff,
-                aligned_edge=aligned_edge,
-                **kwargs,
-            )
+    # def next_to(
+    #     self,
+    #     mobject_or_point,
+    #     direction=RIGHT,
+    #     buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER,
+    #     aligned_edge=ORIGIN,
+    #     **kwargs,
+    # ):
+    #     if aligned_edge is not BASELINE:
+    #         return super().next_to(
+    #             mobject_or_point,
+    #             direction=direction,
+    #             buff=buff,
+    #             aligned_edge=aligned_edge,
+    #             **kwargs,
+    #         )
 
-        # First perform ordinary center-aligned positioning.
-        super().next_to(
-            mobject_or_point,
-            direction=direction,
-            buff=buff,
-            aligned_edge=DOWN,
-            **kwargs,
-        )
+    #     # First perform ordinary center-aligned positioning.
+    #     super().next_to(
+    #         mobject_or_point,
+    #         direction=direction,
+    #         buff=buff,
+    #         aligned_edge=DOWN,
+    #         **kwargs,
+    #     )
 
-        target_baseline = getattr(
-            mobject_or_point,
-            "baseline",
-            mobject_or_point.get_bottom()[1],
-        )
+    #     target_baseline = getattr(
+    #         mobject_or_point,
+    #         "baseline",
+    #         mobject_or_point.get_bottom(),
+    #     )
 
-        self.shift(UP * (target_baseline - self.baseline))
+    #     self.shift((target_baseline - self.baseline)[1] * UP)
 
-        return self
+    #     return self
 
     @property
     def baseline(self) -> float:
-        return self.get_center()[1] + self.baseline_offset
+        return (
+            self.get_center()
+            + self.baseline_offset * self.height * UP
+        )
 
 
 class MathTexPart(VMobject, metaclass=ConvertToOpenGL):

@@ -1706,6 +1706,10 @@ class Mobject:
                     self.add(d, c, s, t)
 
         """
+        align_on_baseline = aligned_edge is BASELINE
+        if align_on_baseline:
+            aligned_edge = DOWN
+
         np_direction = np.asarray(direction)
         np_aligned_edge = np.asarray(aligned_edge)
 
@@ -1728,6 +1732,24 @@ class Mobject:
             aligner = self
         point_to_align = aligner.get_critical_point(np_aligned_edge - np_direction)
         self.shift((target_point - point_to_align + buff * np_direction) * coor_mask)
+
+        if align_on_baseline:
+            target_baseline = getattr(
+                mobject_or_point,
+                "baseline",
+                mobject_or_point.get_bottom(),
+            )
+
+            self_baseline = getattr(
+                self,
+                "baseline",
+                self.get_bottom(),
+            )
+
+            self.shift(
+                (target_baseline - self_baseline)[1] * UP
+            )
+
         return self
 
     def shift_onto_screen(self, **kwargs: Any) -> Self:
