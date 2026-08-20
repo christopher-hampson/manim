@@ -80,7 +80,7 @@ class SingleStringMathTex(SVGMobject):
 
         self.tex_string = tex_string
         file_name = tex_to_svg_file(
-            self._get_modified_expression(BASELINE_MARKER + tex_string),
+            self._get_modified_expression(tex_string),
             environment=self.tex_environment,
             tex_template=self.tex_template,
         )
@@ -311,7 +311,7 @@ class MathTex(SingleStringMathTex):
                 **kwargs,
             )
             # Save the original tex_string
-            self.tex_string = self.arg_separator.join(self.tex_strings)
+            self.tex_string = self.arg_separator.join(self.tex_strings[1:])
             self._break_up_by_substrings()
 
             # Remove the baseline marker from the submobjects and set the baseline attribute
@@ -609,42 +609,6 @@ class MathTex(SingleStringMathTex):
     def sort_alphabetically(self) -> Self:
         self.submobjects.sort(key=lambda m: m.get_tex_string())
         return self
-
-    # def next_to(
-    #     self,
-    #     mobject_or_point,
-    #     direction=RIGHT,
-    #     buff=DEFAULT_MOBJECT_TO_MOBJECT_BUFFER,
-    #     aligned_edge=ORIGIN,
-    #     **kwargs,
-    # ):
-    #     if aligned_edge is not BASELINE:
-    #         return super().next_to(
-    #             mobject_or_point,
-    #             direction=direction,
-    #             buff=buff,
-    #             aligned_edge=aligned_edge,
-    #             **kwargs,
-    #         )
-
-    #     # First perform ordinary center-aligned positioning.
-    #     super().next_to(
-    #         mobject_or_point,
-    #         direction=direction,
-    #         buff=buff,
-    #         aligned_edge=DOWN,
-    #         **kwargs,
-    #     )
-
-    #     target_baseline = getattr(
-    #         mobject_or_point,
-    #         "baseline",
-    #         mobject_or_point.get_bottom(),
-    #     )
-
-    #     self.shift((target_baseline - self.baseline)[1] * UP)
-
-    #     return self
 
     @property
     def baseline(self) -> float:
