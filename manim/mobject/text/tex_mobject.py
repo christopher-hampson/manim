@@ -317,9 +317,7 @@ class MathTex(SingleStringMathTex):
             # Remove the baseline marker from the submobjects and set the baseline attribute
             baseline_y = self.submobjects[0].get_bottom()[1]
             self.submobjects.remove(self.submobjects[0])
-            self.baseline_offset = (
-                        baseline_y - self.get_center()[1]
-                    ) / self.height
+            self.baseline_offset = (baseline_y - self.get_center()[1]) / self.height
 
         except ValueError as compilation_error:
             if self.brace_notation_split_occurred:
@@ -650,10 +648,7 @@ class MathTex(SingleStringMathTex):
 
     @property
     def baseline(self) -> float:
-        return (
-            self.get_center()
-            + self.baseline_offset * self.height * UP
-        )
+        return self.get_center() + self.baseline_offset * self.height * UP
 
 
 class MathTexPart(VMobject, metaclass=ConvertToOpenGL):

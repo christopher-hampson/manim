@@ -353,4 +353,5 @@ class CapStyleType(Enum):
 class Alignment(Enum):
     BASELINE = "baseline"
 
+
 BASELINE = Alignment.BASELINE

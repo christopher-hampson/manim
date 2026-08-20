@@ -559,9 +559,7 @@ class Text(SVGMobject):
         # self.text = text_without_tabs.removeprefix(BASELINE_MARKER)
 
         # Calculate the offset relative to the mobject without the marker.
-        self.baseline_offset = (
-            baseline_y - self.get_center()[1]
-        ) / self.height
+        self.baseline_offset = (baseline_y - self.get_center()[1]) / self.height
 
         if self.disable_ligatures:
             self.submobjects = [*self._gen_chars()]
@@ -569,8 +567,7 @@ class Text(SVGMobject):
         self.chars = self.get_group_class()(*self.submobjects)
 
         self.text = (
-            text_without_tabs
-            .removeprefix(BASELINE_MARKER)
+            text_without_tabs.removeprefix(BASELINE_MARKER)
             .replace(" ", "")
             .replace("\n", "")
         )
@@ -661,10 +658,7 @@ class Text(SVGMobject):
 
     @property
     def baseline(self) -> float:
-        return (
-            self.get_center()
-            + self.baseline_offset * self.height * UP
-        )
+        return self.get_center() + self.baseline_offset * self.height * UP
 
     # def next_to(
     #     self,

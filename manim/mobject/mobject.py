@@ -1746,9 +1746,7 @@ class Mobject:
                 self.get_bottom(),
             )
 
-            self.shift(
-                (target_baseline - self_baseline)[1] * UP
-            )
+            self.shift((target_baseline - self_baseline)[1] * UP)
 
         return self
 
