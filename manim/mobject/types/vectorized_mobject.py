@@ -31,6 +31,7 @@ from manim.mobject.three_d.three_d_utils import (
 )
 from manim.utils.bezier import (
     bezier,
+    bezier_intersections,
     bezier_remap,
     get_smooth_cubic_bezier_handle_points,
     integer_interpolate,
@@ -2176,6 +2177,47 @@ class VMobject(Mobject):
             # and the directions don't match, we just reverse
             self.reverse_direction()
         return self
+
+    def get_intersections(
+        self: Self,
+        vmobject: VMobject,
+    ) -> list[Point3DLike]:
+        """Return a list of all intersection points between two ``self`` and ``vmobject``.
+
+        Parameters
+        ----------
+        vmobject
+            The :class:`.VMobject` that will ``self`` will be intersected with.
+
+        Returns
+        -------
+        :class:`.list[Point3DLike]`
+            The :class:`.list` of intersection points.
+
+        Raises
+        ------
+        TypeError
+            If ``vmobject`` is not an instance of :class:`VMobject`.
+        """
+        if not isinstance(vmobject, VMobject):
+            raise TypeError(
+                f"Expected a VMobject, got value {vmobject} of type "
+                f"{type(vmobject).__name__}."
+            )
+
+        curves1 = self.points.reshape(-1, 4, 3)
+        curves2 = vmobject.points.reshape(-1, 4, 3)
+
+        intersections = []
+
+        for curve1 in curves1:
+            for curve2 in curves2:
+                results = bezier_intersections(curve1, curve2)
+
+                for point, _, _ in results:
+                    intersections.append(point)
+
+        return intersections
 
 
 class VGroup(VMobject, metaclass=ConvertToOpenGL):

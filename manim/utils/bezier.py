@@ -20,6 +20,7 @@ __all__ = [
 ]
 
 
+import itertools as it
 from collections.abc import Callable, Sequence
 from functools import reduce
 from typing import TYPE_CHECKING, overload
@@ -29,6 +30,8 @@ import numpy as np
 from manim.utils.simple_functions import choose
 
 if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
     from manim.typing import (
         BezierPoints,
         BezierPoints_Array,
@@ -1964,6 +1967,36 @@ def is_closed(points: Point3D_Array) -> bool:
     return bool(abs(end[2] - start[2]) <= tolerance[2])
 
 
+def bezier_to_power_basis(points) -> MatrixMN:
+    """Convert Bézier control points to power-basis coefficients.
+
+    Given Bézier control points ``P_0, ..., P_n``, return coefficients
+    ``a_0, ..., a_n`` such that
+
+        B(t) = a_0 + a_1 t + ... + a_n t**n.
+
+    Parameters
+    ----------
+    points
+        The control points defining the Bézier curve.
+
+    Returns
+    -------
+    np.ndarray
+        The power-basis coefficients in ascending order.
+    """
+    points = np.asarray(points)
+    degree = len(points) - 1
+
+    return np.array(
+        [
+            choose(degree, k)
+            * sum((-1) ** (k - i) * choose(k, i) * points[i] for i in range(k + 1))
+            for k in range(degree + 1)
+        ]
+    )
+
+
 def proportions_along_bezier_curve_for_point(
     point: Point3DLike,
     control_points: BezierPointsLike,
@@ -2007,47 +2040,39 @@ def proportions_along_bezier_curve_for_point(
     """
     # Method taken from
     # http://polymathprogrammer.com/2012/04/03/does-point-lie-on-bezier-curve/
-
-    if not all(np.shape(point) == np.shape(c_p) for c_p in control_points):
+    if not all(
+        np.shape(point) == np.shape(control_point) for control_point in control_points
+    ):
         raise ValueError(
             f"Point {point} and Control Points {control_points} have different shapes.",
         )
 
-    control_points = np.array(control_points)
-    n = len(control_points) - 1
-
+    coefficients = bezier_to_power_basis(control_points)
     roots = []
+
     for dim, coord in enumerate(point):
-        control_coords = control_points[:, dim]
-        terms = []
-        for term_power in range(n, -1, -1):
-            outercoeff = choose(n, term_power)
-            term = []
-            sign = 1
-            for subterm_num in range(term_power, -1, -1):
-                innercoeff = choose(term_power, subterm_num) * sign
-                subterm = innercoeff * control_coords[subterm_num]
-                if term_power == 0:
-                    subterm -= coord
-                term.append(subterm)
-                sign *= -1
-            terms.append(outercoeff * sum(np.array(term)))
-        if all(term == 0 for term in terms):
-            # Then both Bezier curve and Point lie on the same plane.
-            # Roots will be none, but in this specific instance, we don't need to consider that.
+        terms = coefficients[:, dim].copy()
+        terms[0] -= coord
+
+        # This coordinate imposes no restriction on the parameter.
+        if np.all(terms == 0):
             continue
-        bezier_polynom = np.polynomial.Polynomial(terms[::-1])
+
+        bezier_polynom = np.polynomial.Polynomial(terms)
         polynom_roots = bezier_polynom.roots()
+
         if len(polynom_roots) > 0:
             polynom_roots = np.around(polynom_roots, int(np.log10(1 / round_to)))
         roots.append(polynom_roots)
 
-    roots = [[root for root in rootlist if root.imag == 0] for rootlist in roots]
+    # Keep real roots only.
+    roots = [root_list[np.isclose(root_list.imag, 0)] for root_list in roots]
+
     # Get common roots
     # arg-type: ignore
     roots = reduce(np.intersect1d, roots)
-    result = np.asarray([r.real for r in roots if 0 <= r.real <= 1])
-    return result
+
+    return np.asarray([root.real for root in roots if 0 <= root.real <= 1])
 
 
 def point_lies_on_bezier(
@@ -2080,3 +2105,229 @@ def point_lies_on_bezier(
     roots = proportions_along_bezier_curve_for_point(point, control_points, round_to)
 
     return len(roots) > 0
+
+
+def _unit_real_roots(polynomial: np.polynomial.Polynomial):
+    """Return approximately real roots in [0, 1]."""
+    roots = polynomial.trim().roots()
+
+    roots = roots[np.isclose(roots.imag, 0)].real
+
+    roots = roots[
+        [
+            (0 <= root <= 1) or np.isclose(root, 0) or np.isclose(root, 1)
+            for root in roots
+        ]
+    ]
+
+    roots = np.clip(roots, 0, 1)
+    roots.sort()
+
+    # Remove duplicate roots
+    if len(roots) > 1:
+        roots = np.array(
+            [
+                root
+                for i, root in enumerate(roots)
+                if i == 0 or not np.isclose(root, roots[i - 1])
+            ]
+        )
+
+    return roots
+
+
+def _coordinate_equation_in_t(
+    curve1,
+    curve2,
+    coordinate,
+):
+    """Construct one coordinate equation of P(t) - Q(u)."""
+    p0, p1, p2, p3 = curve1
+    q0, q1, q2, q3 = curve2
+
+    return [
+        np.polynomial.Polynomial(
+            [
+                p0[coordinate] - q0[coordinate],
+                -q1[coordinate],
+                -q2[coordinate],
+                -q3[coordinate],
+            ]
+        ),
+        np.polynomial.Polynomial([p1[coordinate]]),
+        np.polynomial.Polynomial([p2[coordinate]]),
+        np.polynomial.Polynomial([p3[coordinate]]),
+    ]
+
+
+def _is_zero_polynomial(poly):
+    """Return whether a Polynomial is numerically zero."""
+    return np.all(np.isclose(poly.coef, 0))
+
+
+def _polynomial_determinant(
+    matrix: NDArray,
+) -> np.polynomial.Polynomial:
+    """Return the determinant of a matrix of Polynomial objects."""
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("matrix must be square")
+
+    size = matrix.shape[0]
+    rows = np.arange(size)
+    determinant = np.polynomial.Polynomial([0])
+
+    for permutation in it.permutations(range(size)):
+        entries = matrix[rows, permutation]
+
+        if any(_is_zero_polynomial(entry) for entry in entries):
+            continue
+
+        term = np.polynomial.Polynomial([1])
+        for entry in entries:
+            term *= entry
+
+        inversions = sum(
+            permutation[i] > permutation[j]
+            for i in range(size)
+            for j in range(i + 1, size)
+        )
+
+        determinant += (-1) ** inversions * term
+
+    return determinant.trim()
+
+
+def _sylvester_resultant(
+    p: list[np.polynomial.Polynomial], q: list[np.polynomial.Polynomial]
+):
+    """Return the Sylvester resultant in t of p(t, u) and q(t, u)."""
+    # Remove zero leading coefficients in t.
+    for coefficients in (p, q):
+        while len(coefficients) > 1 and _is_zero_polynomial(coefficients[-1]):
+            coefficients.pop()
+
+    m, n = len(p) - 1, len(q) - 1
+
+    if m == n == 0:
+        return np.polynomial.Polynomial([0])
+
+    if m == 0:
+        return (p[0] ** n).trim()
+
+    if n == 0:
+        return (q[0] ** m).trim()
+
+    size = m + n
+    zero = np.polynomial.Polynomial([0])
+    matrix = np.full((size, size), zero, dtype=object)
+
+    for row in range(n):
+        matrix[row, row : row + len(p)] = p[::-1]
+
+    for row in range(m):
+        matrix[n + row, row : row + len(q)] = q[::-1]
+
+    return _polynomial_determinant(matrix)
+
+
+def bezier_intersections(
+    curve1: BezierPointsLike,
+    curve2: BezierPointsLike,
+) -> list[tuple[Point3D, float, float]]:
+    """Return all intersections of two planar cubic Bézier curves.
+
+    Parameters
+    ----------
+    curve1
+        Four Bézier control points with shape ``(4, 3)``.
+    curve2
+        Four Bézier control points with shape ``(4, 3)``.
+
+    Returns
+    -------
+    list[tuple[Point3D, float, float]]
+        Tuples ``(point, t, u)``, where ``point`` is the intersection point
+        and ``t`` and ``u`` are the corresponding parameters on ``curve1``
+        and ``curve2``.
+    """
+    curve1 = np.asarray(curve1, dtype=float)
+    curve2 = np.asarray(curve2, dtype=float)
+
+    if curve1.shape != (4, 3):
+        raise ValueError("curve1 must have shape (4, 3)")
+
+    if curve2.shape != (4, 3):
+        raise ValueError("curve2 must have shape (4, 3)")
+
+    # Normalize coordinates to improve numerical conditioning.
+    combined = np.vstack([curve1, curve2])
+    origin = combined.mean(axis=0)
+
+    scale = np.max(np.linalg.norm(combined - origin, axis=1))
+
+    if np.isclose(scale, 0):
+        return [(origin, 0.0, 0.0)]
+
+    normalized1 = (curve1 - origin) / scale
+    normalized2 = (curve2 - origin) / scale
+
+    # Functions for evaluating the actual Bézier curves.
+    normalized_bezier1 = bezier(normalized1)
+    normalized_bezier2 = bezier(normalized2)
+    original_bezier1 = bezier(curve1)
+    original_bezier2 = bezier(curve2)
+
+    # Power-basis coefficients in ascending order:
+    power1 = bezier_to_power_basis(normalized1)
+    power2 = bezier_to_power_basis(normalized2)
+
+    # Identify the real roots of the Sylvester resultant polynomial.
+    x_equation = _coordinate_equation_in_t(power1, power2, 0)
+    y_equation = _coordinate_equation_in_t(power1, power2, 1)
+    resultant = _sylvester_resultant(x_equation, y_equation)
+
+    if _is_zero_polynomial(resultant):
+        raise ValueError(
+            "The Bézier curves overlap or are algebraically degenerate in the xy-plane."
+        )
+
+    intersections = []
+
+    # Recover t for each candidate u.
+    for u in _unit_real_roots(resultant):
+        point2 = normalized_bezier2(u)
+
+        t_candidates = []
+
+        # One coordinate equation can be degenerate, e.g. for a
+        # horizontal or vertical curve, so consider both x and y.
+        for coordinate in (0, 1):
+            c0, c1, c2, c3 = power1[:, coordinate]
+
+            polynomial = np.polynomial.Polynomial(
+                [
+                    c0 - point2[coordinate],
+                    c1,
+                    c2,
+                    c3,
+                ]
+            )
+
+            for t in _unit_real_roots(polynomial):
+                if not any(np.isclose(t, existing) for existing in t_candidates):
+                    t_candidates.append(t)
+
+        # Verify candidate parameter pairs geometrically.
+        for t in t_candidates:
+            point1_normalized = normalized_bezier1(t)
+            point2_normalized = normalized_bezier2(u)
+
+            if not np.allclose(point1_normalized, point2_normalized):
+                continue
+
+            point1 = original_bezier1(t)
+            point2 = original_bezier2(u)
+            point = (point1 + point2) / 2
+            intersections.append((point, float(t), float(u)))
+
+    return intersections
