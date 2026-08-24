@@ -356,8 +356,7 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             >>> Arrow().get_default_tip_length()
             0.35
         """
-        max_ratio = self.max_tip_length_to_length_ratio
-        return min(self.tip_length, max_ratio * self.get_arc_length())
+        return self.tip_length
 
     def _set_stroke_width_from_length(self) -> Self:
         """Sets stroke width based on length."""
