@@ -139,8 +139,9 @@ class Arrow(Line):
         # TODO, should this be affected when
         # Arrow.set_stroke is called?
         self.initial_stroke_width = self.stroke_width
-        self.add_tip(tip_shape=tip_shape)
         self._set_stroke_width_from_length()
+        self.add_tip(tip_shape=tip_shape)
+        
 
 class Vector(Arrow):
     """A vector specialized for use in graphs.
@@ -300,13 +301,25 @@ class DoubleArrow(Arrow):
         self.add_tip(at_start=True, tip_shape=tip_shape_start)
 
 
-class CurvedArrow(ArcBetweenPoints):
+class CurvedArrow(Arrow):
     def __init__(
-        self, start_point: Point3DLike, end_point: Point3DLike, **kwargs: Any
-    ) -> None:
-        tip_shape = kwargs.pop("tip_shape", ArrowTriangleFilledTip)
-        super().__init__(start_point, end_point, **kwargs)
-        self.add_tip(tip_shape=tip_shape)
+            self,
+            start_point: Point3DLike | Mobject = LEFT,
+            end_point: Point3DLike | Mobject = RIGHT,
+            buff: float = 0,
+            path_arc: float = TAU/4,
+            **kwargs: Any,
+        ) -> None:
+            super().__init__(start_point,end_point,buff=buff,path_arc=path_arc,**kwargs)
+    
+
+# class CurvedArrow(ArcBetweenPoints):
+#     def __init__(
+#         self, start_point: Point3DLike, end_point: Point3DLike, **kwargs: Any
+#     ) -> None:
+#         tip_shape = kwargs.pop("tip_shape", ArrowTriangleFilledTip)
+#         super().__init__(start_point, end_point, **kwargs)
+#         self.add_tip(tip_shape=tip_shape)
 
 
 class CurvedDoubleArrow(CurvedArrow):
