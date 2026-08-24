@@ -31,7 +31,8 @@ __all__ = [
     "SpinInFromNothing",
 ]
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -210,7 +211,7 @@ class GrowArrow(Animation):
                 self.play(GrowArrow(arrows[2]))
                 self.play(GrowArrow(arrows[3], point_color=RED))
 
-                
+
     """
 
     def __init__(
@@ -418,7 +419,6 @@ class GrowArrow(Animation):
         tip_point: Point3DLike,
     ) -> None:
         """Rigidly position a tip between two prescribed points."""
-
         current_axis = tip.tip_point - tip.base
         target_axis = tip_point - base_point
         current_length = np.linalg.norm(current_axis)
@@ -477,7 +477,7 @@ class GrowArrow(Animation):
 
         if end_tip is not None:
             tip_length = float(np.linalg.norm(end_tip.tip_point - end_tip.base))
-            
+
             shaft_end = self._parameter_before_end_by_chord(
                 current_path,
                 tip_length,
@@ -489,7 +489,7 @@ class GrowArrow(Animation):
                 current_path,
                 shaft_end,
             )
-            
+
             self._position_tip_between(
                 end_tip,
                 end_base_point,
@@ -504,7 +504,7 @@ class GrowArrow(Animation):
 
         if start_tip is not None:
             tip_length = float(np.linalg.norm(start_tip.tip_point - start_tip.base))
-            
+
             shaft_start = self._parameter_after_start_by_chord(
                 current_path,
                 tip_length,
@@ -516,7 +516,7 @@ class GrowArrow(Animation):
                 current_path,
                 shaft_start,
             )
-            
+
             self._position_tip_between(
                 start_tip,
                 start_base_point,
@@ -530,11 +530,11 @@ class GrowArrow(Animation):
             self.mobject.add(start_tip)
 
         self.mobject.pointwise_become_partial(
-                    current_path,
-                    shaft_start,
-                    shaft_end,
-                )
-        
+            current_path,
+            shaft_start,
+            shaft_end,
+        )
+
         self.mobject._set_stroke_width_from_length()
 
         color = interpolate_color(

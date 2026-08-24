@@ -303,6 +303,9 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             False
 
         """
+        if not self.has_tip() and not self.has_start_tip():
+            return super().scale(factor, **kwargs)
+
         if self.get_arc_length() == 0:
             return self
 

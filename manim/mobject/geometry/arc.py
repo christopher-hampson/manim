@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Any, Self, cast
 import numpy as np
 
 from manim.constants import *
+from manim.mobject.geometry.tipable import TipableVMobject
 from manim.mobject.opengl.opengl_compatibility import ConvertToOpenGL
 from manim.mobject.types.vectorized_mobject import VMobject
 from manim.utils.color import BLACK, BLUE, RED, WHITE, ParsableManimColor
@@ -55,8 +56,6 @@ from manim.utils.space_ops import (
     perpendicular_bisector,
     rotate_vector,
 )
-
-from manim.mobject.geometry.tipable import TipableVMobject
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

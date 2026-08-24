@@ -1,32 +1,8 @@
-r"""Mobjects that are curved.
-
-Examples
---------
-.. manim:: UsefulAnnotations
-    :save_last_frame:
-
-    class UsefulAnnotations(Scene):
-        def construct(self):
-            m0 = Dot()
-            m1 = AnnotationDot()
-            m2 = LabeledDot("ii")
-            m3 = LabeledDot(MathTex(r"\alpha").set_color(ORANGE))
-            m4 = CurvedArrow(2*LEFT, 2*RIGHT, radius= -5)
-            m5 = CurvedArrow(2*LEFT, 2*RIGHT, radius= 8)
-            m6 = CurvedDoubleArrow(ORIGIN, 2*RIGHT)
-
-            self.add(m0, m1, m2, m3, m4, m5, m6)
-            for i, mobj in enumerate(self.mobjects):
-                mobj.shift(DOWN * (i-3))
-
-"""
-
 from __future__ import annotations
 
 from manim.mobject.geometry.arc import ArcBetweenPoints
-from manim.mobject.geometry.tipable import TipableVMobject
 from manim.mobject.geometry.tips import ArrowTriangleFilledTip
-from manim.mobject.matrix import Matrix
+# from manim.mobject.matrix import Matrix
 from manim.typing import Vector2DLike
 
 __all__ = [
@@ -38,37 +14,21 @@ __all__ = [
 ]
 
 
-from typing import TYPE_CHECKING, Any  # , Self, cast
+from typing import TYPE_CHECKING, Any 
 
 import numpy as np
 
-# from manim import config
 from manim.constants import *
 from manim.mobject.geometry.line import Line
 from manim.mobject.geometry.tips import ArrowTip
-
-# from manim.mobject.opengl.opengl_compatibility import ConvertToOpenGL
-# from manim.mobject.types.vectorized_mobject import VGroup, VMobject
 from manim.utils.color import ParsableManimColor
-
-# from manim.utils.iterables import adjacent_pairs
-# from manim.utils.space_ops import (
-#     angle_between_vectors,
-#     angle_of_vector,
-#     cartesian_to_spherical,
-#     line_intersection,
-#     perpendicular_bisector,
-#     rotate_vector,
-# )
-# from manim.utils.space_ops import angle_of_vector, line_intersection, normalize
 
 if TYPE_CHECKING:
     from manim.mobject.geometry.line import Line
     from manim.mobject.geometry.tips import ArrowTip, ArrowTriangleFilledTip
 
-    # from manim.mobject.mobject import Mobject
-    # from manim.mobject.text.tex_mobject import SingleStringMathTex, Tex
-    # from manim.mobject.text.text_mobject import Text
+    from ..matrix import Matrix  # Avoid circular import
+
     from manim.typing import (
         Point3DLike,
         Vector3DLike,
@@ -182,109 +142,6 @@ class Arrow(Line):
         self.add_tip(tip_shape=tip_shape)
         self._set_stroke_width_from_length()
 
-    # def scale(self, factor: float, scale_tips: bool = False, **kwargs: Any) -> Self:  # type: ignore[override]
-    #     r"""Scale an arrow, but keep stroke width and arrow tip size fixed.
-
-    #     .. seealso::
-    #         :meth:`~.Mobject.scale`
-
-    #     Examples
-    #     --------
-    #     ::
-
-    #         >>> arrow = Arrow(np.array([-1, -1, 0]), np.array([1, 1, 0]), buff=0)
-    #         >>> scaled_arrow = arrow.scale(2)
-    #         >>> np.round(scaled_arrow.get_start_and_end(), 8) + 0
-    #         array([[-2., -2.,  0.],
-    #                [ 2.,  2.,  0.]])
-    #         >>> arrow.tip.length == scaled_arrow.tip.length
-    #         True
-
-    #     Manually scaling the object using the default method
-    #     :meth:`~.Mobject.scale` does not have the same properties::
-
-    #         >>> new_arrow = Arrow(np.array([-1, -1, 0]), np.array([1, 1, 0]), buff=0)
-    #         >>> another_scaled_arrow = VMobject.scale(new_arrow, 2)
-    #         >>> another_scaled_arrow.tip.length == arrow.tip.length
-    #         False
-
-    #     """
-    #     if self.get_length() == 0:
-    #         return self
-
-    #     if scale_tips:
-    #         super().scale(factor, **kwargs)
-    #         self._set_stroke_width_from_length()
-    #         return self
-
-    #     has_tip = self.has_tip()
-    #     has_start_tip = self.has_start_tip()
-    #     if has_tip or has_start_tip:
-    #         old_tips = self.pop_tips()
-
-    #     super().scale(factor, **kwargs)
-    #     self._set_stroke_width_from_length()
-
-    #     if has_tip:
-    #         # error: Argument "tip" to "add_tip" of "TipableVMobject" has incompatible type "VMobject"; expected "ArrowTip | None"  [arg-type]
-    #         self.add_tip(tip=cast(ArrowTip, old_tips[0]))
-    #     if has_start_tip:
-    #         # error: Argument "tip" to "add_tip" of "TipableVMobject" has incompatible type "VMobject"; expected "ArrowTip | None"  [arg-type]
-    #         self.add_tip(tip=cast(ArrowTip, old_tips[1]), at_start=True)
-    #     return self
-
-    # def get_normal_vector(self) -> Vector3D:
-    #     """Returns the normal of a vector.
-
-    #     Examples
-    #     --------
-    #     ::
-
-    #         >>> np.round(Arrow().get_normal_vector()) + 0. # add 0. to avoid negative 0 in output
-    #         array([ 0.,  0., -1.])
-    #     """
-    #     p0, p1, p2 = self.tip.get_start_anchors()[:3]
-    #     return normalize(np.cross(p2 - p1, p1 - p0))
-
-    # def reset_normal_vector(self) -> Self:
-    #     """Resets the normal of a vector"""
-    #     self.normal_vector = self.get_normal_vector()
-    #     return self
-
-    # def get_default_tip_length(self) -> float:
-    #     """Returns the default tip_length of the arrow.
-
-    #     Examples
-    #     --------
-
-    #     ::
-
-    #         >>> Arrow().get_default_tip_length()
-    #         0.35
-    #     """
-    #     max_ratio = self.max_tip_length_to_length_ratio
-    #     return min(self.tip_length, max_ratio * self.get_length())
-
-    # def _set_stroke_width_from_length(self) -> Self:
-    #     """Sets stroke width based on length."""
-    #     max_ratio = self.max_stroke_width_to_length_ratio
-    #     if config.renderer == RendererType.OPENGL:
-    #         # Mypy does not recognize that the self object in this case
-    #         # is a OpenGLVMobject and that the set_stroke method is
-    #         # defined here:
-    #         # mobject/opengl/opengl_vectorized_mobject.py#L248
-    #         self.set_stroke(  # type: ignore[call-arg]
-    #             width=min(self.initial_stroke_width, max_ratio * self.get_length()),
-    #             recurse=False,
-    #         )
-    #     else:
-    #         self.set_stroke(
-    #             width=min(self.initial_stroke_width, max_ratio * self.get_length()),
-    #             family=False,
-    #         )
-    #     return self
-
-
 class Vector(Arrow):
     """A vector specialized for use in graphs.
 
@@ -369,7 +226,7 @@ class Vector(Arrow):
                     self.add(plane, vec_1, vec_2, label_1, label_2)
         """
         # avoiding circular imports
-        # from ..matrix import Matrix
+        from ..matrix import Matrix
 
         vect = np.array(self.get_end())
         if integer_labels:
