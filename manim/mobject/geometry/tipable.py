@@ -184,8 +184,7 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
         return tip
 
     def reset_endpoints_based_on_tip(self, tip: ArrowTip, at_start: bool) -> Self:
-        if self.get_length() == 0:
-            # Zero length, put_start_and_end_on wouldn't work
+        if self.get_arc_length() == 0:
             return self
 
         if at_start:
@@ -273,7 +272,8 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             return super().get_start()
 
     def get_length(self) -> float:
-        return self.get_arc_length()
+        start, end = self.get_start_and_end()
+        return float(np.linalg.norm(start - end))
 
     def scale(self, factor: float, scale_tips: bool = False, **kwargs: Any) -> Self:  # type: ignore[override]
         r"""Scale an arrow, but keep stroke width and arrow tip size fixed.
@@ -303,7 +303,7 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             False
 
         """
-        if self.get_length() == 0:
+        if self.get_arc_length() == 0:
             return self
 
         if scale_tips:
@@ -357,7 +357,7 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             0.35
         """
         max_ratio = self.max_tip_length_to_length_ratio
-        return min(self.tip_length, max_ratio * self.get_length())
+        return min(self.tip_length, max_ratio * self.get_arc_length())
 
     def _set_stroke_width_from_length(self) -> Self:
         """Sets stroke width based on length."""
@@ -368,12 +368,12 @@ class TipableVMobject(VMobject, metaclass=ConvertToOpenGL):
             # defined here:
             # mobject/opengl/opengl_vectorized_mobject.py#L248
             self.set_stroke(  # type: ignore[call-arg]
-                width=min(self.initial_stroke_width, max_ratio * self.get_length()),
+                width=min(self.initial_stroke_width, max_ratio * self.get_arc_length()),
                 recurse=False,
             )
         else:
             self.set_stroke(
-                width=min(self.initial_stroke_width, max_ratio * self.get_length()),
+                width=min(self.initial_stroke_width, max_ratio * self.get_arc_length()),
                 family=False,
             )
         return self

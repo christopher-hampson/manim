@@ -75,7 +75,7 @@ if TYPE_CHECKING:
     )
 
 
-class Arrow(Line, TipableVMobject):
+class Arrow(Line):
     """An arrow.
 
     Parameters
@@ -443,7 +443,7 @@ class DoubleArrow(Arrow):
         self.add_tip(at_start=True, tip_shape=tip_shape_start)
 
 
-class CurvedArrow(ArcBetweenPoints, TipableVMobject):
+class CurvedArrow(ArcBetweenPoints):
     def __init__(
         self, start_point: Point3DLike, end_point: Point3DLike, **kwargs: Any
     ) -> None:

@@ -11,11 +11,8 @@ Examples
             m1 = AnnotationDot()
             m2 = LabeledDot("ii")
             m3 = LabeledDot(MathTex(r"\alpha").set_color(ORANGE))
-            m4 = CurvedArrow(2*LEFT, 2*RIGHT, radius= -5)
-            m5 = CurvedArrow(2*LEFT, 2*RIGHT, radius= 8)
-            m6 = CurvedDoubleArrow(ORIGIN, 2*RIGHT)
 
-            self.add(m0, m1, m2, m3, m4, m5, m6)
+            self.add(m0, m1, m2, m3)
             for i, mobj in enumerate(self.mobjects):
                 mobj.shift(DOWN * (i-3))
 
@@ -59,7 +56,7 @@ from manim.utils.space_ops import (
     rotate_vector,
 )
 
-# from manim.mobject.geometry.tipable import TipableVMobject
+from manim.mobject.geometry.tipable import TipableVMobject
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -75,7 +72,7 @@ if TYPE_CHECKING:
     )
 
 
-class Arc(VMobject):
+class Arc(TipableVMobject):
     """A circular arc.
 
     Examples
