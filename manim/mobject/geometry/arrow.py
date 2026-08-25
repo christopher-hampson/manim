@@ -305,7 +305,7 @@ class CurvedArrow(Arrow):
     def __init__(
         self,
         *args: Any,
-        buff:float = 0,
+        buff: float = 0,
         path_arc: float = TAU / 4,
         **kwargs: Any,
     ) -> None:
