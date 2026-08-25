@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from manim.mobject.geometry.arc import ArcBetweenPoints
 from manim.mobject.geometry.tips import ArrowTriangleFilledTip
+
 # from manim.mobject.matrix import Matrix
 from manim.typing import Vector2DLike
 
@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 
-from typing import TYPE_CHECKING, Any 
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -26,13 +26,11 @@ from manim.utils.color import ParsableManimColor
 if TYPE_CHECKING:
     from manim.mobject.geometry.line import Line
     from manim.mobject.geometry.tips import ArrowTip, ArrowTriangleFilledTip
-
-    from ..matrix import Matrix  # Avoid circular import
-
     from manim.typing import (
-        Point3DLike,
         Vector3DLike,
     )
+
+    from ..matrix import Matrix  # Avoid circular import
 
 
 class Arrow(Line):
@@ -141,7 +139,7 @@ class Arrow(Line):
         self.initial_stroke_width = self.stroke_width
         self._set_stroke_width_from_length()
         self.add_tip(tip_shape=tip_shape)
-        
+
 
 class Vector(Arrow):
     """A vector specialized for use in graphs.
@@ -303,31 +301,19 @@ class DoubleArrow(Arrow):
 
 class CurvedArrow(Arrow):
     def __init__(
-            self,
-            start_point: Point3DLike | Mobject = LEFT,
-            end_point: Point3DLike | Mobject = RIGHT,
-            buff: float = 0,
-            path_arc: float = TAU/4,
-            **kwargs: Any,
-        ) -> None:
-            super().__init__(start_point,end_point,buff=buff,path_arc=path_arc,**kwargs)
-    
-
-# class CurvedArrow(ArcBetweenPoints):
-#     def __init__(
-#         self, start_point: Point3DLike, end_point: Point3DLike, **kwargs: Any
-#     ) -> None:
-#         tip_shape = kwargs.pop("tip_shape", ArrowTriangleFilledTip)
-#         super().__init__(start_point, end_point, **kwargs)
-#         self.add_tip(tip_shape=tip_shape)
+        self,
+        *args: Any,
+        buff: float = 0,
+        path_arc: float = TAU / 4,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, buff=buff, path_arc=path_arc, **kwargs)
 
 
 class CurvedDoubleArrow(CurvedArrow):
-    def __init__(
-        self, start_point: Point3DLike, end_point: Point3DLike, **kwargs: Any
-    ) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         if "tip_shape_end" in kwargs:
             kwargs["tip_shape"] = kwargs.pop("tip_shape_end")
         tip_shape_start = kwargs.pop("tip_shape_start", ArrowTriangleFilledTip)
-        super().__init__(start_point, end_point, **kwargs)
+        super().__init__(*args, **kwargs)
         self.add_tip(at_start=True, tip_shape=tip_shape_start)
