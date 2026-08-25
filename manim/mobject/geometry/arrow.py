@@ -131,9 +131,14 @@ class Arrow(Line):
         tip_shape: type[ArrowTip] = ArrowTriangleFilledTip,
         **kwargs: Any,
     ) -> None:
-        self.max_tip_length_to_length_ratio = max_tip_length_to_length_ratio
-        self.max_stroke_width_to_length_ratio = max_stroke_width_to_length_ratio
-        super().__init__(*args, buff=buff, stroke_width=stroke_width, **kwargs)  # type: ignore[misc]
+        super().__init__(
+            *args,
+            buff=buff,
+            stroke_width=stroke_width,
+            max_tip_length_to_length_ratio=max_tip_length_to_length_ratio,
+            max_stroke_width_to_length_ratio=max_stroke_width_to_length_ratio,
+            **kwargs,
+        )  # type: ignore[misc]
         # TODO, should this be affected when
         # Arrow.set_stroke is called?
         self.initial_stroke_width = self.stroke_width
