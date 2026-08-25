@@ -31,14 +31,11 @@ __all__ = [
     "SpinInFromNothing",
 ]
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from manim.utils.bezier import bezier
 from manim.utils.color import ManimColor, interpolate_color
-from manim.utils.space_ops import angle_of_vector
 
 from ..animation.transform import Animation, Transform
 from ..constants import PI
@@ -48,7 +45,7 @@ if TYPE_CHECKING:
     from manim.mobject.geometry.tipable import TipableVMobject
     from manim.mobject.geometry.tips import ArrowTip
     from manim.mobject.opengl.opengl_mobject import OpenGLMobject
-    from manim.typing import Point3D, Point3DLike, Vector3DLike
+    from manim.typing import Point3DLike, Vector3DLike
     from manim.utils.color import ManimColor, ParsableManimColor
 
     from ..mobject.mobject import Mobject
@@ -182,37 +179,7 @@ class GrowFromEdge(GrowFromPoint):
 
 
 class GrowArrow(Animation):
-    """Introduce a :class:`~.TipableVMobject` by growing it from its start toward its tip.
-
-    Parameters
-    ----------
-    mobject
-        The tipable mobject to be introduced.
-    point_color
-        Initial color of the mobject before growing to its full size. Leave empty to match mobject's color.
-
-    Examples
-    --------
-
-    .. manim :: GrowArrowExample
-
-        class GrowArrowExample(Scene):
-            def construct(self):
-                arrows = [
-                    Arrow(2 * LEFT, 2 * RIGHT, buff=0),
-                    DoubleArrow(2 * LEFT, 2 * RIGHT, buff=0),
-                    CurvedArrow(2 * LEFT, 2 * RIGHT),
-                    CurvedDoubleArrow(2 * LEFT, 2 * RIGHT),
-                ]
-                VGroup(*arrows).arrange(DOWN, buff=1)
-
-                self.play(GrowArrow(arrows[0]))
-                self.play(GrowArrow(arrows[1]))
-                self.play(GrowArrow(arrows[2]))
-                self.play(GrowArrow(arrows[3], point_color=RED))
-
-
-    """
+    """Introduce a TipableVMobject by growing it along its path."""
 
     def __init__(
         self,
@@ -222,7 +189,12 @@ class GrowArrow(Animation):
     ) -> None:
         self.point_color = point_color
         self.mobject: TipableVMobject
-        super().__init__(mobject, **kwargs)
+
+        super().__init__(
+            mobject,
+            introducer=True,
+            **kwargs,
+        )
 
     def begin(self) -> None:
         self._target_color = ManimColor(self.mobject.get_color())
@@ -232,149 +204,33 @@ class GrowArrow(Animation):
         )
 
         self._end_tip = self.mobject.tip.copy() if self.mobject.has_tip() else None
+
         self._start_tip = (
             self.mobject.start_tip.copy() if self.mobject.has_start_tip() else None
         )
 
-        self._full_path = self.mobject.copy()
-        self._full_path.pop_tips()
+        self._full_path = self.mobject.get_untipped_copy()
 
         super().begin()
 
-    def _remove_current_tips(self) -> None:
-        """Remove current tips without altering the shaft."""
+    def _remove_current_tips(
+        self,
+    ) -> None:
+        """Remove current tips without restoring/changing the shaft."""
         if self.mobject.has_tip():
             self.mobject.remove(self.mobject.tip)
 
         if self.mobject.has_start_tip():
             self.mobject.remove(self.mobject.start_tip)
 
-    def _point_at_parameter(
-        self,
-        path: TipableVMobject,
-        alpha: float,
-    ) -> Point3D | None:
-        """Evaluate a VMobject using pointwise_become_partial's parameterisation."""
-        n_curves = path.get_num_curves()
-
-        if n_curves == 0:
-            return None
-
-        alpha = np.clip(alpha, 0.0, 1.0)
-
-        if alpha >= 1.0:
-            curve_index = n_curves - 1
-            local_t = 1.0
-        else:
-            scaled = alpha * n_curves
-
-            curve_index = min(
-                int(np.floor(scaled)),
-                n_curves - 1,
-            )
-
-            local_t = scaled - curve_index
-
-        points = path.get_nth_curve_points(curve_index)
-
-        return bezier(points)(local_t)
-
-    def _bisect(
-        self,
-        func: Callable[[float], float],
-        low: float,
-        high: float,
-        iterations: int = 30,
-    ) -> float:
-        low_value = func(low)
-
-        for _ in range(iterations):
-            mid = (low + high) / 2
-            mid_value = func(mid)
-
-            if np.signbit(mid_value) == np.signbit(low_value):
-                low = mid
-                low_value = mid_value
-            else:
-                high = mid
-
-        return (low + high) / 2
-
-    def _parameter_before_end_by_chord(
-        self,
-        path: TipableVMobject,
-        distance: float,
-        *,
-        samples: int = 64,
-        iterations: int = 30,
-    ) -> float:
-        """Find the closest point before the end at chord distance ``distance``."""
-        if distance <= 0:
-            return 1.0
-
-        endpoint = path.get_end()
-
-        def chord_error(alpha: float) -> float:
-            point = self._point_at_parameter(path, alpha)
-            return np.linalg.norm(endpoint - point) - distance
-
-        previous_alpha = 1.0
-
-        for i in range(1, samples + 1):
-            alpha = 1.0 - i / samples
-
-            if chord_error(alpha) >= 0:
-                return self._bisect(
-                    chord_error,
-                    alpha,
-                    previous_alpha,
-                    iterations,
-                )
-
-            previous_alpha = alpha
-
-        return 0.0
-
-    def _parameter_after_start_by_chord(
-        self,
-        path: TipableVMobject,
-        distance: float,
-        *,
-        samples: int = 64,
-        iterations: int = 30,
-    ) -> float:
-        """Find the closest point after the start at chord distance ``distance``."""
-        if distance <= 0:
-            return 0.0
-
-        endpoint = path.get_start()
-
-        def chord_error(alpha: float) -> float:
-            point = self._point_at_parameter(path, alpha)
-            return np.linalg.norm(point - endpoint) - distance
-
-        previous_alpha = 0.0
-
-        for i in range(1, samples + 1):
-            alpha = i / samples
-
-            if chord_error(alpha) >= 0:
-                return self._bisect(
-                    chord_error,
-                    previous_alpha,
-                    alpha,
-                    iterations,
-                )
-
-            previous_alpha = alpha
-
-        return 1.0
-
     def _make_scaled_tips(
         self,
         path_length: float,
-    ) -> tuple[ArrowTip | None, ArrowTip | None]:
-        """Create appropriately scaled copies of the original tips."""
+    ) -> tuple[
+        ArrowTip | None,
+        ArrowTip | None,
+    ]:
+        """Create scaled copies of the target tips."""
         original_tips = [
             tip
             for tip in (
@@ -389,7 +245,10 @@ class GrowArrow(Animation):
 
         original_tip_width = sum(tip.width for tip in original_tips)
 
-        if np.isclose(original_tip_width, 0):
+        if np.isclose(
+            original_tip_width,
+            0,
+        ):
             return None, None
 
         target_tip_width = min(
@@ -404,33 +263,17 @@ class GrowArrow(Animation):
             if self._end_tip is not None
             else None
         )
+
         start_tip = (
             self._start_tip.copy().scale(tip_factor)
             if self._start_tip is not None
             else None
         )
 
-        return end_tip, start_tip
-
-    def _position_tip_between(
-        self,
-        tip: ArrowTip,
-        base_point: Point3DLike,
-        tip_point: Point3DLike,
-    ) -> None:
-        """Rigidly position a tip between two prescribed points."""
-        current_axis = tip.tip_point - tip.base
-        target_axis = tip_point - base_point
-        current_length = np.linalg.norm(current_axis)
-        target_length = np.linalg.norm(target_axis)
-
-        if np.isclose(current_length, 0) or np.isclose(target_length, 0):
-            return
-
-        angle = angle_of_vector(target_axis) - angle_of_vector(current_axis)
-
-        tip.rotate(angle, about_point=tip.base)
-        tip.shift(base_point - tip.base)
+        return (
+            end_tip,
+            start_tip,
+        )
 
     def interpolate_mobject(
         self,
@@ -454,48 +297,32 @@ class GrowArrow(Animation):
             alpha,
         )
 
+        self.mobject.set_points(current_path.points.copy())
+
         if current_path.get_num_curves() == 0:
-            self.mobject.set_points(current_path.points.copy())
             return
 
         path_length = current_path.get_arc_length()
 
         if path_length <= 1e-12:
-            self.mobject.set_points(current_path.points.copy())
             return
+
+        # Calculate stroke width before trimming for the tips.
+        self.mobject._set_stroke_width_from_length()
 
         end_tip, start_tip = self._make_scaled_tips(path_length)
 
-        shaft_start = 0.0
-        shaft_end = 1.0
-
-        end_tip_point = None
-        end_base_point = None
-
-        start_tip_point = None
-        start_base_point = None
+        # Do NOT call self.mobject.add_tip() here.
+        #
+        # add_tip() first calls position_tip(), but _trim_for_tip()
+        # already positions the tip using _position_tip_between().
+        # GrowArrow therefore attaches the animated tip directly.
 
         if end_tip is not None:
-            tip_length = float(np.linalg.norm(end_tip.tip_point - end_tip.base))
-
-            shaft_end = self._parameter_before_end_by_chord(
-                current_path,
-                tip_length,
-            )
-
-            end_tip_point = current_path.get_end().copy()
-
-            end_base_point = self._point_at_parameter(
-                current_path,
-                shaft_end,
-            )
-
-            self._position_tip_between(
+            self.mobject._trim_for_tip(
                 end_tip,
-                end_base_point,
-                end_tip_point,
+                at_start=False,
             )
-
             self.mobject.assign_tip_attr(
                 end_tip,
                 at_start=False,
@@ -503,39 +330,15 @@ class GrowArrow(Animation):
             self.mobject.add(end_tip)
 
         if start_tip is not None:
-            tip_length = float(np.linalg.norm(start_tip.tip_point - start_tip.base))
-
-            shaft_start = self._parameter_after_start_by_chord(
-                current_path,
-                tip_length,
-            )
-
-            start_tip_point = current_path.get_start().copy()
-
-            start_base_point = self._point_at_parameter(
-                current_path,
-                shaft_start,
-            )
-
-            self._position_tip_between(
+            self.mobject._trim_for_tip(
                 start_tip,
-                start_base_point,
-                start_tip_point,
+                at_start=True,
             )
-
             self.mobject.assign_tip_attr(
                 start_tip,
                 at_start=True,
             )
             self.mobject.add(start_tip)
-
-        self.mobject.pointwise_become_partial(
-            current_path,
-            shaft_start,
-            shaft_end,
-        )
-
-        self.mobject._set_stroke_width_from_length()
 
         color = interpolate_color(
             self._starting_color,
