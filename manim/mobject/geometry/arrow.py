@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from manim.mobject.geometry.tips import ArrowTriangleFilledTip
-
-# from manim.mobject.matrix import Matrix
 from manim.typing import Vector2DLike
 
 __all__ = [
@@ -21,6 +19,7 @@ import numpy as np
 from manim.constants import *
 from manim.mobject.geometry.line import Line
 from manim.mobject.geometry.tips import ArrowTip
+from manim.mobject.graphing.functions import ParametricFunction
 from manim.utils.color import ParsableManimColor
 
 if TYPE_CHECKING:
@@ -124,7 +123,7 @@ class Arrow(Line):
     def __init__(
         self,
         *args: Any,
-        stroke_width: float = 6,
+        stroke_width: float = DEFAULT_ARROW_STROKE_WIDTH,
         buff: float = MED_SMALL_BUFF,
         max_tip_length_to_length_ratio: float = 0.25,
         max_stroke_width_to_length_ratio: float = 5,
@@ -138,9 +137,7 @@ class Arrow(Line):
             max_tip_length_to_length_ratio=max_tip_length_to_length_ratio,
             max_stroke_width_to_length_ratio=max_stroke_width_to_length_ratio,
             **kwargs,
-        )  # type: ignore[misc]
-        # TODO, should this be affected when
-        # Arrow.set_stroke is called?
+        )
         self.initial_stroke_width = self.stroke_width
         self._set_stroke_width_from_length()
         self.add_tip(tip_shape=tip_shape)
@@ -308,14 +305,37 @@ class CurvedArrow(Arrow):
     def __init__(
         self,
         *args: Any,
-        buff: float = 0,
         path_arc: float = TAU / 4,
         **kwargs: Any,
     ) -> None:
-        super().__init__(*args, buff=buff, path_arc=path_arc, **kwargs)
+        super().__init__(*args, path_arc=path_arc, **kwargs)
 
 
 class CurvedDoubleArrow(CurvedArrow):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        if "tip_shape_end" in kwargs:
+            kwargs["tip_shape"] = kwargs.pop("tip_shape_end")
+        tip_shape_start = kwargs.pop("tip_shape_start", ArrowTriangleFilledTip)
+        super().__init__(*args, **kwargs)
+        self.add_tip(at_start=True, tip_shape=tip_shape_start)
+
+
+class ParametricArrow(ParametricFunction):
+    def __init__(
+        self,
+        *args: Any,
+        max_tip_length_to_length_ratio: float = 0.25,
+        max_stroke_width_to_length_ratio: float = 5,
+        tip_shape: type[ArrowTip] = ArrowTriangleFilledTip,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.initial_stroke_width = self.stroke_width
+        self._set_stroke_width_from_length()
+        self.add_tip(tip_shape=tip_shape)
+
+
+class ParametricDoubleArrow(ParametricArrow):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         if "tip_shape_end" in kwargs:
             kwargs["tip_shape"] = kwargs.pop("tip_shape_end")

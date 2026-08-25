@@ -12,6 +12,7 @@ import numpy as np
 from isosurfaces import plot_isoline
 
 from manim import config
+from manim.mobject.geometry.tipable import TipableVMobject
 from manim.mobject.graphing.scale import LinearBase, _ScaleBase
 from manim.mobject.opengl.opengl_compatibility import ConvertToOpenGL
 from manim.mobject.types.vectorized_mobject import VMobject
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 from manim.utils.color import PURE_YELLOW
 
 
-class ParametricFunction(VMobject, metaclass=ConvertToOpenGL):
+class ParametricFunction(TipableVMobject, metaclass=ConvertToOpenGL):
     """A parametric curve.
 
     Parameters
